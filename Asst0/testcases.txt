@@ -1,0 +1,41 @@
+./stringsorter 'Apples apples Bees bees'
+Apples
+Bees
+apples
+bees
+
+./stringsorter '(&%*%'
+no output
+
+./stringsorter H H
+error message
+
+./stringsorter
+error message
+
+./stringsorter ''
+no output
+
+./stringsorter 'C A B'
+A
+B
+C
+
+./stringsorter '#C#A#B#'
+A
+B
+C
+
+./stringsorter '@What *&eVen$Is &This Is even'
+Is
+Is
+This
+What
+eVen
+even
+
+./stringsorter 'aand aAnd Aand AAnd'
+AAnd
+Aand
+aAnd
+aand
