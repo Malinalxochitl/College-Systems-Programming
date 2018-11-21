@@ -1,0 +1,12 @@
+Workload E:
+This workload will alternate between allocating an 8 byte block and a 32 byte block.
+After allocating each of these blocks 60 times, the 32 byte blocks are freed.
+Then, 60 12 byte blocks are allocated.
+The purpose of this workload is to create a fractured memory with blocks spaced out between each other.
+It tests whether malloc can handle allocating with the memory broken up into multiple sections of free memory.
+
+Workload F:
+This workload will malloc blocks of size N until malloc returns NULL (not enough memory)
+It will then free all blocks, increment N by 1, and repeat this process until N is equal to 150.
+The purpose of this workload is to test malloc's capability of handling large amounts of memory allocations.
+It also tests how malloc will handle more allocations than memory can provide at various byte sizes.
