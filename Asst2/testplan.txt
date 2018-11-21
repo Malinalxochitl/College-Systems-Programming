@@ -1,0 +1,7 @@
+The first test is the directory adir. It is a modification of the example given in the assignment pdf. This tests whether the program can handle multiple directories, and multiple files with the same name.
+
+The second test is the file wikipedia. It contains multiple wikipedia articles, and is around 5000 lines long, and 400 kb in size. This is not TOO big, however certain text editors with many features have trouble opening the resultant xml file. This test is to check whether the program is capable of handling large text files.
+
+The third test comes in two parts. There is a file called same, and inside of this file are two sentences. Next, there is the folder named identical. Inside of this folder is a file same, and another folder identical which contains another file same. These two same files each contain one of the sentences seen in the file called same that was talked about earlier. Calling the program on the file and the directory should produce the exact same output.
+
+The fourth test is in the folder repeat. It contains 5 differently named files, each containing the same sentence but repeated a different number of times depending on the file. The purpose of this test is to check whether the ordering for words and filenames is correct. This test also checks whether the indexer will recognize that a word must start with an alphabetic character.

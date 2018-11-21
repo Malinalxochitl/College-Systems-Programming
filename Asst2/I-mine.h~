@@ -1,0 +1,37 @@
+#define BUCKETSIZE 5000
+#include<ctype.h>
+typedef struct FileNode {
+	struct FileNode* next;
+	int* count;                 // for linked list of file names and occurences
+	char* fileName;
+} fileNode;
+
+typedef struct HashNode {
+	struct HashNode* next;
+	char* word;
+	fileNode* fileList;           // for chaining in the Hash table.
+} HashNode;
+
+typedef struct node {
+	struct node* next;      // for storing a complete list of alphabetical words
+	char* word;		// we need it since the hash table is not alphabetical
+} node;
+
+int file_exist (char *filename) {
+  struct stat   buffer;   
+  return (stat (filename, &buffer) == 0);          // does the file exist
+}
+
+static node* List;             // holds a list of alphabetically sorted words
+static HashNode* Table[BUCKETSIZE];
+
+node* createNode(char* word);
+fileNode* CreateFileNode(const char* fileName);
+HashNode* CreateHashNode(const char* word, const char* file);
+int hash(char* word);
+void swapI(int* a, int* b);
+void AddtoFlist(HashNode* F, const char* file);
+int AddtoHash(char* word, const char* file);
+void AddtoList(char* word);
+void fileprint(char* file);
+int f(const char* F, const struct stat* B, int C, struct FTW* D);
