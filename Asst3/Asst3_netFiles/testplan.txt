@@ -1,0 +1,11 @@
+In order to test the server, other programs were written which included the libnetfiles into their headers so as to use their functions.
+
+The first functions created 4 different threads, all of which attempted to open the same file in unrestricted mode. The first two threads tried to read from the file, while the last two tried to write to the file. This tested whether the server can handle simultaneous operations on the same file. 
+
+The second program opened 10 files, and then closed 10 files. This tests whether the data structures can handle multiple open and close operations in sequence.
+
+The third program opened and then closed a file, 10 times. This tests whether the data structures can handle repeated additions and deletions of nodes.
+
+The fourth program establishes a connection, and then does nothing for 25 seconds. This is to test whether the server is capable of closing connections.
+
+The fifth program will establish connections in unrestricted, exclusive, and transaction mode, as well as open files with different flags. This is to test whether or not the server is applying the filemode restrictions to file opening.

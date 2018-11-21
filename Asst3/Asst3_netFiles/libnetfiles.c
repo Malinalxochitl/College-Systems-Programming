@@ -1,0 +1,246 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/select.h>
+#include "libnetfiles.h"
+
+/*Initializes the connection to the server*/
+int netserverinit(char* hostname, int filemode) {
+	if(filemode < 0 || filemode > 2) { //invalid filemode
+		h_errno = INVALID_FILE_MODE;
+		return -1;
+	}
+	struct addrinfo hints, *res;
+	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_family = PF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	
+	getaddrinfo(hostname, PORTNO, &hints, &res);
+	
+	if (res == NULL) { //invalid hostname
+		h_errno = HOST_NOT_FOUND;
+		return -1;
+	}
+	
+	sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+	if (sockfd < 0) {
+		perror("ERROR opening socket");
+		return -1;
+	}
+	if (connect(sockfd, res->ai_addr, res->ai_addrlen) < 0) {
+		perror("ERROR connecting");
+		return -1;
+	}
+	if (filemode == 0) {
+		mode = 'U';			//unrestricted mode
+	} else if (filemode == 1) {
+		mode = 'E';			//Exclusive mode
+	} else {
+		mode = 'T';			//Transfer mode
+	}
+	return 0;
+}
+
+int netopen(const char* pathname, int flags) {
+	if(sockfd == -1) {
+		h_errno = HOST_NOT_FOUND;
+		return -1;
+	}
+	int length = strlen(pathname);
+	char message[(sizeof(int)*2)+length+3];
+	message[0] = 'O';
+	message[1] = mode;
+	memcpy(message+2, &flags, sizeof(int));
+	memcpy(message+sizeof(int)+2, &length, sizeof(int));
+	memcpy(message+(sizeof(int)*2)+2, pathname, length+1);
+	
+	fd_set set;
+	struct timeval timeout;
+	int rv;
+	FD_ZERO(&set);
+	FD_SET(sockfd, &set);
+	
+	timeout.tv_sec = 5;
+	timeout.tv_usec = 0;
+	
+	rv = select(sockfd+1, NULL, &set, NULL, &timeout);
+	if(rv == -1) {
+		perror("ERROR in select");
+		return -1;
+	} else if (rv == 0) { //if a connection can't be made in 5 sec, error
+		errno = ETIMEDOUT;
+		return -1;
+	}
+	write(sockfd, message, strlen(message)+1);
+	
+	char buffer[sizeof(int)+1];
+	read(sockfd, buffer, sizeof(int)+1);
+	if(buffer[0] == 'e') { //e means error
+		memcpy(&errno, buffer+1, sizeof(int));
+		return -1;
+	} else if (buffer[0] == 'f'){ //f means not error
+		int filedesc;
+		memcpy(&filedesc, buffer+1, sizeof(int));
+		filedesc = -1 * (filedesc + 2);
+		return filedesc;
+	} else {
+		fprintf(stderr, "invalid return from server");
+		return -1;
+	}
+}
+
+ssize_t netread(int fildes, void *buf, size_t nbyte) {
+	if(sockfd == -1) {
+		h_errno = HOST_NOT_FOUND;
+		return -1;
+	}
+	int fd = (fildes * -1) - 2;
+	if(fd < 0) {
+		errno = EBADF;
+		return -1;
+	}
+	char message[sizeof(int)+sizeof(size_t)+1];
+	message[0] = 'R';
+	memcpy(message+1, &fd, sizeof(int));
+	memcpy(message+1+sizeof(int), &nbyte, sizeof(size_t));
+	int temp = write(sockfd, message, strlen(message+1));
+	if(temp == -1) {
+		errno = ECONNRESET;
+		return -1;
+	}
+	
+	fd_set set;
+	struct timeval timeout;
+	int rv;
+	FD_ZERO(&set);
+	FD_SET(sockfd, &set);
+	
+	timeout.tv_sec = 10;
+	timeout.tv_usec = 0;
+	
+	rv = select(sockfd+1, NULL, &set, NULL, &timeout);
+	if(rv == -1) {
+		perror("ERROR in select");
+		return -1;
+	} else if (rv == 0) { //if a connection can't be made in 10 sec, error
+		errno = ETIMEDOUT;
+		return -1;
+	}
+	char buffer[MAX_BUFFER];
+	rv = read(sockfd, buffer, nbyte);
+	if(buffer[0] == 'e') {
+		memcpy(&errno, buffer+1, sizeof(int));
+		return -1;
+	} else {
+		memcpy(buf, buffer+1, rv-1);
+		return rv-1;
+	}
+}
+
+ssize_t netwrite(int fildes, const void *buf, size_t nbyte) {
+	if(sockfd == -1) {
+		h_errno = HOST_NOT_FOUND;
+		return -1;
+	}
+	int fd = (fildes * -1) - 2;
+	if(fd < 0) {
+		errno = EBADF;
+		return -1;
+	}
+	char buffer[MAX_BUFFER];
+	buffer[0] = 'W';
+	memcpy(buffer+1, &fd, sizeof(int));
+	memcpy(buffer+1+sizeof(int), &nbyte, sizeof(size_t));
+	memcpy(buffer+1+sizeof(int)+sizeof(size_t), buf, nbyte);
+	
+	fd_set set;
+	struct timeval timeout;
+	int rv;
+	FD_ZERO(&set);
+	FD_SET(sockfd, &set);
+	
+	timeout.tv_sec = 10;
+	timeout.tv_usec = 0;
+	
+	rv = select(sockfd+1, NULL, &set, NULL, &timeout);
+	if(rv == -1) {
+		perror("ERROR in select");
+		return -1;
+	} else if (rv == 0) { //if a connection can't be made in 10 sec, error
+		errno = ETIMEDOUT;
+		return -1;
+	}
+	
+	int temp = write(sockfd, buffer, strlen(buffer+1));
+	if(temp == -1) {
+		errno = ECONNRESET;
+		return -1;
+	}
+	char message[sizeof(int)+1];
+	temp = read(sockfd, message, sizeof(int)+1);
+	if(temp == -1) {
+		errno = ECONNRESET;
+		return -1;
+	}
+	if(message[0] == 'e') {
+		memcpy(&errno, message+1, sizeof(int));
+		return -1;
+	} else {
+		ssize_t ret;
+		memcpy(&ret, message+1, sizeof(ssize_t));
+		return ret;
+	}
+}
+
+int netclose(int netfd) {
+	if(sockfd == -1) {
+		h_errno = HOST_NOT_FOUND;
+		return -1;
+	}
+	int fd = (netfd * -1) - 2;
+	char message[sizeof(int)+2];
+	message[0] = 'C';
+	message[1] = mode;
+	memcpy(message+2, &fd, sizeof(int));
+	
+	fd_set set;
+	struct timeval timeout;
+	int rv;
+	FD_ZERO(&set);
+	FD_SET(sockfd, &set);
+	
+	timeout.tv_sec = 5;
+	timeout.tv_usec = 0;
+	
+	rv = select(sockfd+1, NULL, &set, NULL, &timeout);
+	if(rv == -1) {
+		perror("ERROR in select");
+		return -1;
+	} else if (rv == 0) { //if a connection can't be made in 5 sec, error
+		errno = ETIMEDOUT;
+		return -1;
+	}
+	write(sockfd, message, sizeof(int)+2);
+	
+	char buffer[5];
+	read(sockfd, buffer, 5);
+	if(buffer[0] == 'e') {
+		memcpy(&errno, buffer+1, sizeof(int));
+		return -1;
+	} else {
+		return 0;
+	}
+}
+
+int main(int argc, char ** argv) {
+	
+	return 0;
+}
+

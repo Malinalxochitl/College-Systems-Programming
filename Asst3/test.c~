@@ -1,0 +1,42 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <pthread.h>
+
+#define MAXLINE 1024
+#define ALL_ADDR 1
+#define my_port 22222
+
+int main(int argc, char ** argv)
+	{
+		int err, sfd, connection_id;
+		struct addrinfo hints, *res;
+		memset(&hints, 0, sizeof(struct addrinfo);
+		hints.ai_family = PF_INET;
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_flags = AI_PASSIVE;
+		
+		getaddrinfo(NULL, my_port, &hints, &res);
+		
+		sfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+		err = bind(sfd, res->ai_addr, res->ai_addrlen);
+		freeaddrinfo(res);
+		err = listen(sfd, 100);
+		
+		struct sockaddr_storage client_addr;
+		socklen_t client_addr_len;
+		client_addr_len = sizeof(struct sockaddr_storage);
+		while(1) {
+			connection_id = accept(sfd, (struct sockaddr *) &client_addr, &client_addr_len);
+			pthread_t temp;
+			pthread_create(&temp, NULL, process, &connection_id);
+			pthread_detach(temp);
+		}
+		return 0;
+	}
+	
+void *process (int sock) {
+	
+}
